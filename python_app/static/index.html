@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quant Pricing Engine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .result-item.highlight {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border: 2px solid #667eea;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .result-label {
+            color: #666;
+        }
+        
+        .result-value {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .greeks-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .greek-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .greek-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .greek-value {
+            color: #667eea;
+            font-size: 1.3em;
+            font-weight: 700;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .error.active {
+            display: block;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #1565c0;
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .greeks-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Quant Pricing Engine</h1>
+            <p>High-Performance C++ Options Pricing with Black-Scholes & Monte Carlo</p>
+        </div>
+        
+        <div class="main-grid">
+            <!-- Input Panel -->
+            <div class="card">
+                <h2>📊 Option Parameters</h2>
+                
+                <div class="info-box">
+                    💡 Enter market parameters to price European options instantly
+                </div>
+                
+                <form id="pricingForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Spot Price (S)</label>
+                            <input type="number" id="spotPrice" value="100" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Strike Price (K)</label>
+                            <input type="number" id="strikePrice" value="100" step="0.01" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Time to Maturity (T, years)</label>
+                            <input type="number" id="timeToMaturity" value="1.0" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Risk-Free Rate (r)</label>
+                            <input type="number" id="riskFreeRate" value="0.05" step="0.001" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Volatility (σ)</label>
+                            <input type="number" id="volatility" value="0.20" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Option Type</label>
+                            <select id="optionType" required>
+                                <option value="Call">Call</option>
+                                <option value="Put">Put</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Pricing Method</label>
+                        <select id="pricingMethod" required>
+                            <option value="BlackScholes">Black-Scholes (Analytical)</option>
+                            <option value="MonteCarlo">Monte Carlo (Simulation)</option>
+                        </select>
+                    </div>
+                    
+                    <div id="mcOptions" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>MC Paths</label>
+                                <input type="number" id="mcPaths" value="100000" step="10000" min="1000">
+                            </div>
+                            <div class="form-group">
+                                <label>Seed (optional)</label>
+                                <input type="number" id="mcSeed" placeholder="Random">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn">🚀 Calculate Price</button>
+                </form>
+                
+                <div class="loading" id="loading">
+                    ⏳ Calculating...
+                </div>
+                
+                <div class="error" id="error"></div>
+            </div>
+            
+            <!-- Results Panel -->
+            <div class="card">
+                <h2>📈 Pricing Results</h2>
+                
+                <div class="results" id="results" style="display: none;">
+                    <div class="result-item highlight">
+                        <span class="result-label">Option Price:</span>
+                        <span class="result-value" id="optionPrice">-</span>
+                    </div>
+                    
+                    <div class="result-item">
+                        <span class="result-label">Method:</span>
+                        <span class="result-value" id="methodUsed">-</span>
+                    </div>
+                    
+                    <div class="result-item" id="stdErrorRow" style="display: none;">
+                        <span class="result-label">Std Error (±):</span>
+                        <span class="result-value" id="stdError">-</span>
+                    </div>
+                    
+                    <div class="result-item" id="mcPathsRow" style="display: none;">
+                        <span class="result-label">MC Paths:</span>
+                        <span class="result-value" id="mcPathsUsed">-</span>
+                    </div>
+                </div>
+                
+                <div id="greeksSection" style="display: none;">
+                    <h2 style="margin-top: 25px;">🎯 Greeks (Risk Sensitivities)</h2>
+                    <div class="greeks-grid">
+                        <div class="greek-card">
+                            <div class="greek-label">Delta (Δ)</div>
+                            <div class="greek-value" id="deltaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Gamma (Γ)</div>
+                            <div class="greek-value" id="gammaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Vega (ν)</div>
+                            <div class="greek-value" id="vegaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Theta (Θ)</div>
+                            <div class="greek-value" id="thetaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Rho (ρ)</div>
+                            <div class="greek-value" id="rhoValue">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="placeholder" style="text-align: center; padding: 60px 20px; color: #999;">
+                    <div style="font-size: 3em; margin-bottom: 10px;">📊</div>
+                    <p>Enter parameters and click Calculate to see results</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('pricingForm');
+        const methodSelect = document.getElementById('pricingMethod');
+        const mcOptions = document.getElementById('mcOptions');
+        const loading = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const results = document.getElementById('results');
+        const placeholder = document.getElementById('placeholder');
+        const greeksSection = document.getElementById('greeksSection');
+        
+        // Show/hide MC options
+        methodSelect.addEventListener('change', function() {
+            mcOptions.style.display = this.value === 'MonteCarlo' ? 'block' : 'none';
+        });
+        
+        // Handle form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Clear previous errors
+            errorDiv.classList.remove('active');
+            errorDiv.textContent = '';
+            
+            // Show loading
+            loading.classList.add('active');
+            placeholder.style.display = 'none';
+            results.style.display = 'none';
+            greeksSection.style.display = 'none';
+            
+            // Gather form data
+            const data = {
+                S: parseFloat(document.getElementById('spotPrice').value),
+                K: parseFloat(document.getElementById('strikePrice').value),
+                T: parseFloat(document.getElementById('timeToMaturity').value),
+                r: parseFloat(document.getElementById('riskFreeRate').value),
+                v: parseFloat(document.getElementById('volatility').value),
+                type: document.getElementById('optionType').value,
+                method: document.getElementById('pricingMethod').value
+            };
+            
+            if (data.method === 'MonteCarlo') {
+                data.mc_paths = parseInt(document.getElementById('mcPaths').value);
+                const seedValue = document.getElementById('mcSeed').value;
+                if (seedValue) {
+                    data.mc_seed = parseInt(seedValue);
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/price', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Pricing failed');
+                }
+                
+                // Display results
+                document.getElementById('optionPrice').textContent = '$' + result.price.toFixed(4);
+                document.getElementById('methodUsed').textContent = result.method;
+                
+                if (result.method === 'Monte Carlo') {
+                    document.getElementById('stdErrorRow').style.display = 'flex';
+                    document.getElementById('stdError').textContent = result.std_error.toFixed(6);
+                    document.getElementById('mcPathsRow').style.display = 'flex';
+                    document.getElementById('mcPathsUsed').textContent = result.mc_paths.toLocaleString();
+                } else {
+                    document.getElementById('stdErrorRow').style.display = 'none';
+                    document.getElementById('mcPathsRow').style.display = 'none';
+                }
+                
+                // Display Greeks if available
+                if (result.greeks) {
+                    document.getElementById('deltaValue').textContent = result.greeks.delta.toFixed(4);
+                    document.getElementById('gammaValue').textContent = result.greeks.gamma.toFixed(4);
+                    document.getElementById('vegaValue').textContent = result.greeks.vega.toFixed(2);
+                    document.getElementById('thetaValue').textContent = result.greeks.theta.toFixed(2);
+                    document.getElementById('rhoValue').textContent = result.greeks.rho.toFixed(2);
+                    greeksSection.style.display = 'block';
+                }
+                
+                results.style.display = 'block';
+                
+            } catch (error) {
+                errorDiv.textContent = '❌ Error: ' + error.message;
+                errorDiv.classList.add('active');
+                placeholder.style.display = 'block';
+            } finally {
+                loading.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

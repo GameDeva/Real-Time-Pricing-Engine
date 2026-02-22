@@ -1,0 +1,75 @@
+# CMake build artifacts
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# C++ compiled artifacts
+*.o
+*.obj
+*.exe
+*.out
+*.app
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+*.pdb
+*.ilk
+*.exp
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.egg-info/
+dist/
+*.egg
+
+# Python bindings output
+*.pyd
+python_app/*.pyd
+python_app/Release/
+python_app/Debug/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Generated plots
+python_app/*.png
+
+# Test outputs
+Testing/
+CTestTestfile.cmake
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
