@@ -1,5 +1,6 @@
 #include "market_data/OrderBook.h"
 
+#include <mutex>
 #include <stdexcept>
 
 // ── Private helpers ────────────────────────────────────────────────────────────
