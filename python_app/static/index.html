@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quant Pricing Engine — Real-Time Options Pricer</title>
     <meta name="description"
-        content="High-performance C++ options pricing engine with real-time Binance LOB market data feed, Black-Scholes and Monte Carlo models.">
+        content="High-performance C++ options pricing engine with real-time Binance LOB market data, Black-Scholes and Monte Carlo models.">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <style>
         *,
@@ -18,16 +18,20 @@
         }
 
         :root {
-            --bg: #0d0d1a;
-            --surface: #141428;
-            --surface2: #1c1c38;
-            --accent: #6c63ff;
-            --accent2: #ff9f43;
-            --text: #e8e8f0;
-            --muted: #8888aa;
-            --border: #2a2a4a;
-            --green: #2ecc71;
-            --red: #e74c3c;
+            --bg: #0f0808;
+            --surface: #1a0d0d;
+            --surface2: #261313;
+            --surface3: #301818;
+            --accent: #9b2335;
+            --accent2: #c0392b;
+            --gold: #c9a96e;
+            --text: #ede8e8;
+            --muted: #9a8080;
+            --border: #3d1a1a;
+            --green: #27ae60;
+            --red: #c0392b;
+            --chart1: #e85d5d;
+            --chart2: #c9a96e;
         }
 
         body {
@@ -37,44 +41,47 @@
             min-height: 100vh;
         }
 
-        /* ── Header ─────────────────────────────────── */
+        /* ── Header ─────────────────────── */
         header {
-            background: linear-gradient(135deg, #1a1a3e 0%, #0d0d1a 100%);
+            background: linear-gradient(135deg, #2a0d0d 0%, #0f0808 100%);
             border-bottom: 1px solid var(--border);
-            padding: 20px 32px;
+            padding: 16px 28px;
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
         }
 
         header h1 {
-            font-size: 1.5rem;
-            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            font-size: 1.4rem;
+            background: linear-gradient(90deg, #e85d5d, var(--gold));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         header p {
             color: var(--muted);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
+            margin-top: 2px;
         }
 
-        /* ── Tabs ────────────────────────────────────── */
+        /* ── Tabs ────────────────────────── */
         .tabs {
             display: flex;
             gap: 4px;
-            padding: 20px 32px 0;
+            padding: 16px 28px 0;
             border-bottom: 1px solid var(--border);
+            background: var(--surface);
         }
 
         .tab-btn {
-            padding: 10px 22px;
+            padding: 9px 20px;
             border: none;
-            border-radius: 8px 8px 0 0;
+            border-radius: 7px 7px 0 0;
             background: transparent;
             color: var(--muted);
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             font-weight: 600;
             transition: all .2s;
             border-bottom: 3px solid transparent;
@@ -86,190 +93,205 @@
         }
 
         .tab-btn.active {
-            color: var(--accent);
+            color: #e85d5d;
             border-bottom-color: var(--accent);
-            background: var(--surface);
+            background: var(--bg);
         }
 
         .tab-pane {
             display: none;
-            padding: 28px 32px;
         }
 
         .tab-pane.active {
             display: block;
         }
 
-        /* ── Grid ────────────────────────────────────── */
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 380px 1fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 900px) {
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* ── Cards ───────────────────────────────────── */
-        .card {
+        /* ── Controls bar (live tab only) ── */
+        .ctrl-bar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 14px 28px;
             background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .card h2 {
-            font-size: 1rem;
-            color: var(--accent);
-            margin-bottom: 18px;
-        }
-
-        /* ── Forms ───────────────────────────────────── */
-        .form-group {
-            margin-bottom: 14px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.8rem;
+        .ctrl-label {
+            font-size: 0.72rem;
             color: var(--muted);
-            margin-bottom: 5px;
             text-transform: uppercase;
             letter-spacing: .5px;
         }
 
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+        .sym-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        input,
-        select {
-            width: 100%;
-            padding: 9px 12px;
+        .sym-wrap input {
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 6px;
             color: var(--text);
             font-size: 0.9rem;
+            font-weight: 700;
+            padding: 7px 12px;
+            width: 130px;
+            text-transform: uppercase;
             transition: border-color .2s;
         }
 
-        input:focus,
-        select:focus {
+        .sym-wrap input:focus {
             outline: none;
             border-color: var(--accent);
         }
 
-        .btn {
-            width: 100%;
-            padding: 11px;
-            background: linear-gradient(135deg, var(--accent), #9c59d1);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
+        .time-toggle {
+            display: flex;
+            gap: 2px;
+        }
+
+        .tw-btn {
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--muted);
+            font-size: 0.8rem;
             font-weight: 700;
             cursor: pointer;
-            letter-spacing: .3px;
-            transition: opacity .2s, transform .1s;
+            transition: all .15s;
         }
 
-        .btn:hover {
-            opacity: .88;
+        .tw-btn:first-child {
+            border-radius: 6px 0 0 6px;
         }
 
-        .btn:active {
-            transform: scale(.98);
+        .tw-btn:last-child {
+            border-radius: 0 6px 6px 0;
         }
 
-        .btn.danger {
-            background: linear-gradient(135deg, var(--red), #c0392b);
+        .tw-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
         }
 
-        /* ── Results ─────────────────────────────────── */
-        .result-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 14px;
-            background: var(--surface2);
+        .conn-btn {
+            padding: 8px 20px;
+            border: none;
             border-radius: 6px;
-            margin-bottom: 8px;
-        }
-
-        .result-row.highlight {
-            border: 1px solid var(--accent);
-            font-size: 1.15rem;
+            font-size: 0.88rem;
             font-weight: 700;
+            cursor: pointer;
+            transition: opacity .2s;
+            letter-spacing: .3px;
         }
 
-        .result-label {
+        .conn-btn:hover {
+            opacity: .85;
+        }
+
+        .conn-btn.connect {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .conn-btn.stop {
+            background: var(--surface3);
             color: var(--muted);
-            font-size: 0.85rem;
+            border: 1px solid var(--border);
         }
 
-        .result-value {
-            font-weight: 600;
-        }
-
-        .greeks-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 16px;
-        }
-
-        .greek-card {
-            background: var(--surface2);
-            border-radius: 8px;
-            padding: 14px;
-            text-align: center;
-        }
-
-        .greek-name {
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             font-size: 0.75rem;
             color: var(--muted);
-            margin-bottom: 6px;
-            text-transform: uppercase;
+            padding: 5px 12px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
         }
 
-        .greek-val {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--accent);
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
         }
 
-        /* ── Live panel metrics ───────────────────────── */
+        .dot.live {
+            background: var(--green);
+            animation: pulse 1.4s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(39, 174, 96, .6);
+            }
+
+            70% {
+                box-shadow: 0 0 0 7px rgba(39, 174, 96, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(39, 174, 96, 0);
+            }
+        }
+
+        .ctrl-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        /* ── Hero metrics ────────────────── */
+        .metrics-section {
+            padding: 18px 28px 0;
+        }
+
         .metric-strip {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 10px;
-            margin-bottom: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .metric-strip {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
         .metric {
-            background: var(--surface2);
-            border-radius: 8px;
-            padding: 14px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 14px;
             text-align: center;
         }
 
+        .metric.highlight {
+            border-color: var(--accent);
+            background: var(--surface2);
+        }
+
         .metric-label {
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             color: var(--muted);
             text-transform: uppercase;
             letter-spacing: .5px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
 
         .metric-val {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             font-weight: 700;
+            font-variant-numeric: tabular-nums;
         }
 
         .metric-val.up {
@@ -280,91 +302,498 @@
             color: var(--red);
         }
 
-        .status-dot {
-            display: inline-block;
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            margin-right: 6px;
-            background: var(--red);
-            box-shadow: 0 0 0 0 var(--red);
+        .metric-val.gold {
+            color: var(--gold);
         }
 
-        .status-dot.live {
-            background: var(--green);
-            animation: pulse 1.4s infinite;
+        .metric-sub {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 3px;
         }
 
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(46, 204, 113, .6);
-            }
+        /* ── Charts ──────────────────────── */
+        .charts-section {
+            padding: 16px 28px 0;
+        }
 
-            70% {
-                box-shadow: 0 0 0 7px rgba(46, 204, 113, 0);
-            }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
 
-            100% {
-                box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+        @media (max-width: 900px) {
+            .chart-grid {
+                grid-template-columns: 1fr;
             }
         }
 
-        /* ── Chart container ─────────────────────────── */
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 18px;
+        }
+
+        .chart-card h3 {
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 12px;
+        }
+
         .chart-wrap {
             position: relative;
-            height: 300px;
-            margin-bottom: 20px;
+            height: 240px;
         }
 
-        /* ── Misc ─────────────────────────────────────── */
+        /* ── Collapsible params ──────────── */
+        .params-section {
+            padding: 16px 28px 24px;
+        }
+
+        details {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        summary {
+            padding: 14px 18px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--muted);
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+            transition: color .2s;
+        }
+
+        summary:hover {
+            color: var(--text);
+        }
+
+        summary::before {
+            content: '▸';
+            font-size: 0.75rem;
+            transition: transform .2s;
+        }
+
+        details[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .params-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr) auto;
+            gap: 12px;
+            align-items: end;
+            padding: 16px 18px;
+        }
+
+        @media (max-width: 900px) {
+            .params-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        .p-group label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 5px;
+        }
+
+        .p-group input {
+            width: 100%;
+            padding: 8px 10px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.88rem;
+            transition: border-color .2s;
+        }
+
+        .p-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .apply-btn {
+            padding: 9px 18px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity .2s;
+        }
+
+        .apply-btn:hover {
+            opacity: .85;
+        }
+
+        .params-note {
+            padding: 0 18px 14px;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
         .error-box {
-            background: rgba(231, 76, 60, .15);
+            margin: 0 28px 12px;
+            background: rgba(192, 57, 43, .15);
             border: 1px solid var(--red);
-            color: #ff7675;
+            color: #ff9b9b;
             padding: 10px 14px;
             border-radius: 6px;
-            margin-top: 12px;
+            font-size: 0.82rem;
             display: none;
-            font-size: 0.85rem;
         }
 
         .error-box.show {
             display: block;
         }
 
-        .info-pill {
-            font-size: 0.75rem;
+        /* ── Static pricer tab ───────────── */
+        #pane-pricer {
+            padding: 24px 28px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 370px 1fr;
+            gap: 18px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 22px;
+        }
+
+        .card h2 {
+            font-size: 0.95rem;
+            color: #e85d5d;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .form-group {
+            margin-bottom: 13px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 5px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 8px 10px;
             background: var(--surface2);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 4px 12px;
-            color: var(--muted);
-            display: inline-flex;
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.88rem;
+            transition: border-color .2s;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        select option {
+            background: var(--surface2);
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 11px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+
+        .btn-primary:hover {
+            opacity: .88;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 6px;
+            padding: 9px 13px;
+            background: var(--surface2);
+            border-radius: 6px;
+            margin-bottom: 7px;
+        }
+
+        .result-row.main {
+            border: 1px solid var(--accent);
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .result-label {
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+
+        .result-value {
+            font-weight: 600;
+        }
+
+        .greeks-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .greek-card {
+            background: var(--surface2);
+            border-radius: 7px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .greek-name {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .greek-val {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        .static-error {
+            background: rgba(192, 57, 43, .15);
+            border: 1px solid var(--red);
+            color: #ff9b9b;
+            padding: 10px 13px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 0.82rem;
+            display: none;
+        }
+
+        .static-error.show {
+            display: block;
+        }
+
+        .placeholder {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--muted);
+        }
+
+        .placeholder .icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 
 <body>
 
+    <!-- ── Header ──────────────────────────────────────────────── -->
     <header>
         <div>
             <h1>⚡ Quant Pricing Engine</h1>
-            <p>High-Performance C++ Options Pricer &mdash; Black-Scholes &amp; Monte Carlo &amp; Real-Time LOB</p>
+            <p>C++ Black-Scholes &amp; Monte Carlo &mdash; Real-Time Binance LOB</p>
         </div>
     </header>
 
-    <!-- ── Tabs ─────────────────────────────────────────────────────────────── -->
+    <!-- ── Tabs ────────────────────────────────────────────────── -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('pricer',this)" id="tab-pricer">📊 Static Pricer</button>
-        <button class="tab-btn" onclick="switchTab('live',this)" id="tab-live">🔴 Live Dashboard</button>
+        <button class="tab-btn active" onclick="switchTab('live',this)">🔴 Live Dashboard</button>
+        <button class="tab-btn" onclick="switchTab('pricer',this)">📊 Static Pricer</button>
     </div>
 
-    <!-- ================================================================ -->
-    <!-- TAB 1 · Static Pricer                                            -->
-    <!-- ================================================================ -->
-    <div class="tab-pane active" id="pane-pricer">
+    <!-- ================================================================
+     LIVE DASHBOARD TAB
+     ================================================================ -->
+    <div class="tab-pane active" id="pane-live">
+
+        <!-- Controls bar -->
+        <div class="ctrl-bar">
+            <span class="ctrl-label">Symbol</span>
+            <div class="sym-wrap">
+                <input id="lSymbol" list="symbolList" value="BTCUSDT" autocomplete="off" spellcheck="false"
+                    placeholder="e.g. BTCUSDT">
+                <datalist id="symbolList">
+                    <option value="BTCUSDT">
+                    <option value="ETHUSDT">
+                    <option value="SOLUSDT">
+                    <option value="BNBUSDT">
+                    <option value="XRPUSDT">
+                    <option value="ADAUSDT">
+                    <option value="DOGEUSDT">
+                    <option value="AVAXUSDT">
+                    <option value="DOTUSDT">
+                    <option value="LINKUSDT">
+                    <option value="MATICUSDT">
+                    <option value="LTCUSDT">
+                    <option value="UNIUSDT">
+                    <option value="ATOMUSDT">
+                    <option value="NEARUSDT">
+                </datalist>
+            </div>
+
+            <div class="ctrl-sep"></div>
+
+            <span class="ctrl-label">Window</span>
+            <div class="time-toggle">
+                <button class="tw-btn active" id="tw-tick" onclick="setWindow('tick',this)">Tick</button>
+                <button class="tw-btn" id="tw-1m" onclick="setWindow('1m',this)">1 m</button>
+                <button class="tw-btn" id="tw-1h" onclick="setWindow('1h',this)">1 h</button>
+            </div>
+
+            <div class="ctrl-sep"></div>
+
+            <button id="connectBtn" class="conn-btn connect" onclick="startStream()">▶ Connect</button>
+            <button id="stopBtn" class="conn-btn stop" onclick="stopStream()" style="display:none">■ Stop</button>
+
+            <div class="status-pill">
+                <span class="dot" id="lDot"></span>
+                <span id="lStatus">Disconnected</span>
+            </div>
+        </div>
+
+        <!-- Hero metrics -->
+        <div class="metrics-section">
+            <div class="metric-strip">
+                <div class="metric">
+                    <div class="metric-label" id="lbl-spot">— Spot</div>
+                    <div class="metric-val" id="mSpot">—</div>
+                    <div class="metric-sub" id="msub-bid-ask">Bid / Ask</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Best Bid</div>
+                    <div class="metric-val up" id="mBid">—</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Best Ask</div>
+                    <div class="metric-val down" id="mAsk">—</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Spread</div>
+                    <div class="metric-val" id="mSpread">—</div>
+                </div>
+                <div class="metric highlight">
+                    <div class="metric-label" id="lbl-option">Call Price (BS)</div>
+                    <div class="metric-val gold" id="mOption">—</div>
+                    <div class="metric-sub" id="msub-params">K — · T — · σ —</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-section">
+            <div class="chart-grid">
+                <div class="chart-card">
+                    <h3 id="chartSpotTitle">— Mid-Price</h3>
+                    <div class="chart-wrap"><canvas id="chartSpot"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3 id="chartOptionTitle">BS Call Option Price</h3>
+                    <div class="chart-wrap"><canvas id="chartOption"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div class="error-box" id="liveError"></div>
+
+        <!-- Collapsible params -->
+        <div class="params-section">
+            <details id="paramsDetails">
+                <summary>⚙ Pricing Engine Parameters</summary>
+                <div class="params-grid">
+                    <div class="p-group">
+                        <label>
+                            Strike K
+                            <button id="atmBtn" type="button" onclick="snapATM()" style="margin-left:6px;padding:1px 7px;font-size:0.68rem;font-weight:700;
+                                     background:var(--surface3);border:1px solid var(--border);
+                                     color:var(--gold);border-radius:4px;cursor:pointer;
+                                     vertical-align:middle;" title="Set strike to current spot (ATM)">ATM</button>
+                        </label>
+                        <input type="number" id="lStrike" value="95000">
+                    </div>
+                    <div class="p-group">
+                        <label>Maturity T (yrs)</label>
+                        <input type="number" id="lT" value="0.25" step="0.01">
+                    </div>
+                    <div class="p-group">
+                        <label>Rate r</label>
+                        <input type="number" id="lR" value="0.05" step="0.001">
+                    </div>
+                    <div class="p-group">
+                        <label>Vol σ</label>
+                        <input type="number" id="lVol" value="0.60" step="0.01">
+                    </div>
+                    <div class="p-group" style="grid-column: span 1"><!-- spacer --></div>
+                    <button class="apply-btn" onclick="startStream()">Apply &amp; Reconnect</button>
+                </div>
+                <p class="params-note">
+                    Changes take effect on reconnect. Strike, maturity, rate and vol affect the BS call price only —
+                    the LOB feed is independent. Press <kbd>Enter</kbd> in any field to apply immediately.
+                </p>
+            </details>
+        </div>
+
+    </div><!-- /pane-live -->
+
+    <!-- ================================================================
+     STATIC PRICER TAB
+     ================================================================ -->
+    <div class="tab-pane" id="pane-pricer">
         <div class="grid-2">
 
             <!-- Input -->
@@ -423,20 +852,20 @@
                             </div>
                         </div>
                     </div>
-                    <button id="calcBtn" type="submit" class="btn">🚀 Calculate Price</button>
+                    <button id="calcBtn" type="submit" class="btn-primary">🚀 Calculate Price</button>
                 </form>
-                <div class="error-box" id="staticError"></div>
+                <div class="static-error" id="staticError"></div>
             </div>
 
             <!-- Results -->
-            <div class="card" id="resultsCard">
+            <div class="card">
                 <h2>📈 Pricing Results</h2>
-                <div id="placeholder" style="text-align:center;padding:60px 20px;color:var(--muted)">
-                    <div style="font-size:3em;margin-bottom:10px">📊</div>
+                <div class="placeholder" id="placeholder">
+                    <div class="icon">📊</div>
                     <p>Fill in parameters and click Calculate</p>
                 </div>
                 <div id="resultsBody" style="display:none">
-                    <div class="result-row highlight">
+                    <div class="result-row main">
                         <span class="result-label">Option Price</span>
                         <span class="result-value" id="resPrice">—</span>
                     </div>
@@ -453,7 +882,7 @@
                         <span class="result-value" id="resMcPaths">—</span>
                     </div>
                     <div id="greeksWrap" style="display:none">
-                        <h2 style="margin-top:24px">🎯 Greeks</h2>
+                        <h2 style="margin-top:20px">🎯 Greeks</h2>
                         <div class="greeks-grid">
                             <div class="greek-card">
                                 <div class="greek-name">Delta Δ</div>
@@ -479,88 +908,15 @@
                     </div>
                 </div>
             </div>
+
         </div>
-    </div>
+    </div><!-- /pane-pricer -->
 
-    <!-- ================================================================ -->
-    <!-- TAB 2 · Live Dashboard                                           -->
-    <!-- ================================================================ -->
-    <div class="tab-pane" id="pane-live">
-
-        <!-- Parameters row -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px">
-            <div class="form-group" style="margin:0">
-                <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Strike K</label>
-                <input type="number" id="lStrike" value="95000" style="width:130px">
-            </div>
-            <div class="form-group" style="margin:0">
-                <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Maturity T (yrs)</label>
-                <input type="number" id="lT" value="0.25" step="0.01" style="width:110px">
-            </div>
-            <div class="form-group" style="margin:0">
-                <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Rate r</label>
-                <input type="number" id="lR" value="0.05" step="0.001" style="width:90px">
-            </div>
-            <div class="form-group" style="margin:0">
-                <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Vol σ</label>
-                <input type="number" id="lVol" value="0.60" step="0.01" style="width:90px">
-            </div>
-            <div class="form-group" style="margin:0">
-                <label style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Symbol</label>
-                <input type="text" id="lSymbol" value="btcusdt" style="width:110px">
-            </div>
-            <button id="lStartBtn" class="btn" style="width:auto;padding:10px 24px" onclick="startStream()">▶
-                Connect</button>
-            <button id="lStopBtn" class="btn danger" style="width:auto;padding:10px 24px;display:none"
-                onclick="stopStream()">■ Stop</button>
-            <span class="info-pill"><span class="status-dot" id="lDot"></span><span
-                    id="lStatus">Disconnected</span></span>
-        </div>
-
-        <!-- Live metrics -->
-        <div class="metric-strip">
-            <div class="metric">
-                <div class="metric-label">BTC Spot</div>
-                <div class="metric-val" id="mSpot">—</div>
-            </div>
-            <div class="metric">
-                <div class="metric-label">Best Bid</div>
-                <div class="metric-val up" id="mBid">—</div>
-            </div>
-            <div class="metric">
-                <div class="metric-label">Best Ask</div>
-                <div class="metric-val down" id="mAsk">—</div>
-            </div>
-            <div class="metric">
-                <div class="metric-label">Spread</div>
-                <div class="metric-val" id="mSpread">—</div>
-            </div>
-            <div class="metric">
-                <div class="metric-label">Call Price (BS)</div>
-                <div class="metric-val" style="color:var(--accent2)" id="mOption">—</div>
-            </div>
-        </div>
-
-        <!-- Charts -->
-        <div class="grid-2" style="margin-bottom:0">
-            <div class="card">
-                <h2>📈 BTC Mid-Price (last 300 ticks)</h2>
-                <div class="chart-wrap"><canvas id="chartSpot"></canvas></div>
-            </div>
-            <div class="card">
-                <h2>💰 BS Call Option Price (live)</h2>
-                <div class="chart-wrap"><canvas id="chartOption"></canvas></div>
-            </div>
-        </div>
-
-        <div class="error-box" id="liveError"></div>
-    </div>
-
-    <!-- ================================================================ -->
-    <!-- Scripts                                                          -->
-    <!-- ================================================================ -->
+    <!-- ================================================================
+     Scripts
+     ================================================================ -->
     <script>
-        // ── Tab switching ────────────────────────────────────────────────────
+        // ── Tab switching ────────────────────────────────────────────
         function switchTab(name, btn) {
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -568,7 +924,7 @@
             btn.classList.add('active');
         }
 
-        // ── Static pricer ────────────────────────────────────────────────────
+        // ── Static pricer ────────────────────────────────────────────
         document.getElementById('pricingMethod').addEventListener('change', function () {
             document.getElementById('mcOptions').style.display = this.value === 'MonteCarlo' ? 'block' : 'none';
         });
@@ -595,7 +951,6 @@
                 const s = document.getElementById('mcSeed').value;
                 if (s) data.mc_seed = +s;
             }
-
             try {
                 const res = await fetch('/api/price', {
                     method: 'POST',
@@ -607,11 +962,10 @@
 
                 document.getElementById('resPrice').textContent = '$' + r.price.toFixed(4);
                 document.getElementById('resMethod').textContent = r.method;
-                document.getElementById('resStdRow').style.display = r.std_error ? 'flex' : 'none';
-                if (r.std_error) document.getElementById('resStd').textContent = r.std_error.toFixed(6);
+                document.getElementById('resStdRow').style.display = r.std_error != null ? 'flex' : 'none';
+                if (r.std_error != null) document.getElementById('resStd').textContent = r.std_error.toFixed(6);
                 document.getElementById('resMcRow').style.display = r.mc_paths ? 'flex' : 'none';
                 if (r.mc_paths) document.getElementById('resMcPaths').textContent = r.mc_paths.toLocaleString();
-
                 if (r.greeks) {
                     document.getElementById('gDelta').textContent = r.greeks.delta.toFixed(4);
                     document.getElementById('gGamma').textContent = r.greeks.gamma.toFixed(6);
@@ -630,76 +984,124 @@
             }
         });
 
-        // ── Live dashboard ───────────────────────────────────────────────────
-        const MAX_PTS = 300;
+        // ── Live dashboard ────────────────────────────────────────────
+
+        // Window config:
+        //   tick → 300 pts, every raw tick (100ms)
+        //   1m   → 600 pts, every raw tick   (60s)
+        //   1h   → 3600 pts, 1 pt / sec (subsample: keep 1 of every 10 ticks)
+        const WINDOW_CFG = {
+            tick: { maxPts: 300, subsample: 1 },
+            '1m': { maxPts: 600, subsample: 1 },
+            '1h': { maxPts: 3600, subsample: 10 },
+        };
+        let timeWindow = 'tick';
+        let tickCounter = 0;
+
+        function setWindow(w, btn) {
+            timeWindow = w;
+            tickCounter = 0;
+            document.querySelectorAll('.tw-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // Clear chart data
+            spotData = []; optionData = [];
+            refreshChart(chartSpot, spotData);
+            refreshChart(chartOption, optionData);
+        }
+
         let sse = null;
         let spotData = [], optionData = [];
+        let activeSym = '';
 
-        function makeChart(id, label, color) {
+        function makeChart(id, color) {
             return new Chart(document.getElementById(id), {
                 type: 'line',
-                data: { labels: [], datasets: [{ label, data: [], borderColor: color, borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.2 }] },
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        borderColor: color,
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.2,
+                    }]
+                },
                 options: {
                     animation: false,
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#8888aa', boxWidth: 12 } } },
+                    plugins: { legend: { display: false } },
                     scales: {
                         x: { display: false },
-                        y: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a4a' } }
+                        y: {
+                            ticks: { color: '#9a8080', font: { size: 11 } },
+                            grid: { color: '#3d1a1a' },
+                        }
                     }
                 }
             });
         }
 
-        const chartSpot = makeChart('chartSpot', 'BTC Mid-Price', '#00c8ff');
-        const chartOption = makeChart('chartOption', 'BS Call Price', '#ff9f43');
+        const chartSpot = makeChart('chartSpot', '#e85d5d');
+        const chartOption = makeChart('chartOption', '#c9a96e');
 
-        function pushPoint(chart, arr, val) {
-            arr.push(val);
-            if (arr.length > MAX_PTS) arr.shift();
+        function refreshChart(chart, arr) {
             chart.data.labels = arr.map((_, i) => i);
             chart.data.datasets[0].data = [...arr];
             chart.update('none');
         }
 
+        function pushPoint(arr, val) {
+            const cfg = WINDOW_CFG[timeWindow];
+            arr.push(val);
+            if (arr.length > cfg.maxPts) arr.shift();
+        }
+
         function setStatus(live) {
-            const dot = document.getElementById('lDot');
-            const txt = document.getElementById('lStatus');
-            dot.className = 'status-dot' + (live ? ' live' : '');
-            txt.textContent = live ? 'Live' : 'Disconnected';
+            document.getElementById('lDot').className = 'dot' + (live ? ' live' : '');
+            document.getElementById('lStatus').textContent = live ? 'Live' : 'Disconnected';
+        }
+
+        function updateLabels(sym, strike, vol, T) {
+            // Normalise: strip USDT for brevity in titles
+            const base = sym.replace(/USDT$/i, '');
+            activeSym = sym;
+
+            document.getElementById('lbl-spot').textContent = base + ' Spot';
+            document.getElementById('chartSpotTitle').textContent = base + ' Mid-Price';
+            document.getElementById('chartOptionTitle').textContent = 'BS Call — ' + base;
+            document.getElementById('msub-params').textContent =
+                'K ' + Number(strike).toLocaleString() + ' · T ' + T + 'y · σ ' + (vol * 100).toFixed(0) + '%';
         }
 
         function startStream() {
-            if (sse) sse.close();
+            if (sse) { sse.close(); sse = null; }
             spotData = []; optionData = [];
-            chartSpot.data.datasets[0].data = [];
-            chartOption.data.datasets[0].data = [];
-            chartSpot.update('none');
-            chartOption.update('none');
+            refreshChart(chartSpot, spotData);
+            refreshChart(chartOption, optionData);
+            tickCounter = 0;
 
-            const errEl = document.getElementById('liveError');
-            errEl.classList.remove('show');
+            document.getElementById('liveError').classList.remove('show');
 
-            const lStrike = document.getElementById('lStrike').value;
-            const lT = document.getElementById('lT').value;
-            const lR = document.getElementById('lR').value;
-            const lVol = document.getElementById('lVol').value;
-            const lSym = document.getElementById('lSymbol').value.trim().toLowerCase() || 'btcusdt';
-            const url = `/api/live-stream?strike=${lStrike}&T=${lT}&r=${lR}&vol=${lVol}&symbol=${lSym}`;
+            const strike = document.getElementById('lStrike').value;
+            const T = document.getElementById('lT').value;
+            const r = document.getElementById('lR').value;
+            const vol = document.getElementById('lVol').value;
+            const sym = document.getElementById('lSymbol').value.trim().toUpperCase() || 'BTCUSDT';
 
-            // Update chart titles to reflect active params
-            chartSpot.data.datasets[0].label = lSym.toUpperCase() + ' Mid-Price';
-            chartOption.data.datasets[0].label = 'BS Call  K=' + Number(lStrike).toLocaleString();
-            chartSpot.update('none');
-            chartOption.update('none');
+            updateLabels(sym, strike, vol, T);
 
+            const url = `/api/live-stream?strike=${strike}&T=${T}&r=${r}&vol=${vol}&symbol=${sym.toLowerCase()}`;
             sse = new EventSource(url);
             setStatus(true);
-            document.getElementById('lStartBtn').style.display = 'none';
-            document.getElementById('lStopBtn').style.display = 'inline-block';
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
 
             let prevSpot = null;
+            let firstTick = true;   // auto-snap strike on first live tick
+            const cfg = WINDOW_CFG[timeWindow];
+
             sse.onmessage = function (e) {
                 const d = JSON.parse(e.data);
                 if (d.error) {
@@ -707,46 +1109,88 @@
                     document.getElementById('liveError').classList.add('show');
                     return;
                 }
-                const fmt = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                document.getElementById('mSpot').textContent = fmt(d.spot);
-                document.getElementById('mBid').textContent = fmt(d.best_bid);
-                document.getElementById('mAsk').textContent = fmt(d.best_ask);
-                document.getElementById('mSpread').textContent = '$' + d.spread.toFixed(4);
-                document.getElementById('mOption').textContent = '$' + d.option_price.toFixed(2);
 
-                // Colour spot by direction
+                // Subsample for 1h window
+                tickCounter++;
+                const keep = (tickCounter % cfg.subsample === 0);
+
+                const fmt = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                // Always update metric cards (every tick)
                 const spotEl = document.getElementById('mSpot');
+                spotEl.textContent = fmt(d.spot);
                 if (prevSpot !== null) {
                     spotEl.className = 'metric-val ' + (d.spot >= prevSpot ? 'up' : 'down');
                 }
                 prevSpot = d.spot;
 
-                pushPoint(chartSpot, spotData, d.spot);
-                pushPoint(chartOption, optionData, d.option_price);
+                // Auto-snap strike to ATM on first tick if the current strike
+                // is more than 5× away from spot (e.g. BTC default 95000 vs ETH spot 1949).
+                if (firstTick) {
+                    firstTick = false;
+                    const curStrike = parseFloat(document.getElementById('lStrike').value);
+                    const ratio = Math.max(curStrike, d.spot) / Math.min(curStrike, d.spot);
+                    if (ratio > 5) {
+                        // Round to nearest 50 for a clean strike
+                        const atm = Math.round(d.spot / 50) * 50;
+                        document.getElementById('lStrike').value = atm;
+                        // Reconnect with corrected params
+                        startStream();
+                        return;
+                    }
+                }
+
+                document.getElementById('mBid').textContent = fmt(d.best_bid);
+                document.getElementById('mAsk').textContent = fmt(d.best_ask);
+                document.getElementById('mSpread').textContent = '$' + d.spread.toFixed(4);
+                document.getElementById('mOption').textContent = '$' + d.option_price.toFixed(2);
+                document.getElementById('msub-bid-ask').textContent =
+                    fmt(d.best_bid) + ' / ' + fmt(d.best_ask);
+
+                // Only push to chart according to subsample rate
+                if (keep) {
+                    pushPoint(spotData, d.spot);
+                    pushPoint(optionData, d.option_price);
+                    refreshChart(chartSpot, spotData);
+                    refreshChart(chartOption, optionData);
+                }
             };
 
             sse.onerror = function () {
                 setStatus(false);
-                document.getElementById('lStartBtn').style.display = 'inline-block';
-                document.getElementById('lStopBtn').style.display = 'none';
+                document.getElementById('connectBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'none';
             };
         }
 
         function stopStream() {
             if (sse) { sse.close(); sse = null; }
             setStatus(false);
-            document.getElementById('lStartBtn').style.display = 'inline-block';
-            document.getElementById('lStopBtn').style.display = 'none';
+            document.getElementById('connectBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
         }
 
-        // Allow pressing Enter in any param field to apply changes immediately.
-        // If already streaming, stop and reconnect with the new values.
-        document.querySelectorAll('#pane-live input').forEach(function (inp) {
+        function snapATM() {
+            // Read the last known spot from the metric card
+            const spotText = document.getElementById('mSpot').textContent.replace(/[$,]/g, '');
+            const spot = parseFloat(spotText);
+            if (!spot || spot <= 0) {
+                alert('Connect first to get a live spot price, then press ATM.');
+                return;
+            }
+            // Round to nearest 50 for a clean strike
+            const atm = Math.round(spot / 50) * 50;
+            document.getElementById('lStrike').value = atm;
+            // Expand params so the user can see the updated value
+            document.getElementById('paramsDetails').open = true;
+            // Reconnect if streaming
+            if (sse) startStream();
+        }
+
+        // Enter in any params field applies immediately
+        document.querySelectorAll('#paramsDetails input').forEach(function (inp) {
             inp.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    startStream(); // reconnects if already live
-                }
+                if (e.key === 'Enter') { e.preventDefault(); startStream(); }
             });
         });
     </script>

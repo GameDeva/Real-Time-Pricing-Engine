@@ -234,10 +234,21 @@ def live_stream():
     symbol = request.args.get('symbol', 'btcusdt').lower()
 
     def generate():
-        _get_or_start_engine(symbol)
+        # Capture pricer locally — avoids reading the global mid-stream
+        # if another thread resets it for a symbol change.
+        _client, pricer = _get_or_start_engine(symbol)
+
+        # SSE keepalive comment: forces Werkzeug to flush its write buffer
+        # so the browser knows the connection is alive before the first data frame.
+        yield ": keepalive\n\n"
+
         while True:
             try:
-                result = _live_pricer.get_live_option_price(strike, T, r, vol, True)
+                result = pricer.get_live_option_price(strike, T, r, vol, True)
+                if result.spot <= 0:
+                    # LOB snapshot not yet populated — skip this tick
+                    time.sleep(0.1)
+                    continue
                 payload = json.dumps({
                     'spot':         round(result.spot, 2),
                     'option_price': round(result.option_price, 4),
@@ -246,6 +257,8 @@ def live_stream():
                     'spread':       round(result.spread, 4),
                 })
                 yield f"data: {payload}\n\n"
+            except GeneratorExit:
+                return   # browser disconnected — exit cleanly
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
             time.sleep(0.1)
