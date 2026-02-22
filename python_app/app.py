@@ -5,6 +5,14 @@ Exposes REST API endpoints for option pricing and Greeks calculation.
 
 import sys
 import os
+
+# Windows: ixwebsocket links OpenSSL dynamically — make the DLLs discoverable.
+# On Linux/Railway this block is a no-op (OpenSSL is on the standard ld path).
+if sys.platform == 'win32':
+    _ssl_bin = r'C:\Program Files\OpenSSL-Win64\bin'
+    if os.path.isdir(_ssl_bin):
+        os.add_dll_directory(_ssl_bin)
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -142,8 +150,117 @@ def calculate_greeks():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+# ── Real-time market data (LOB + Live Pricer) ──────────────────────────────────
+
+import json
+import time
+import threading
+from flask import Response, stream_with_context
+
+# Module-level singleton keyed by symbol.
+# Switching symbol stops the old engine and boots a new one.
+_live_engine_lock = threading.Lock()
+_live_client = None
+_live_pricer  = None
+_live_symbol  = None
+
+def _get_or_start_engine(symbol: str = "btcusdt"):
+    """
+    Return the running engine for `symbol`.
+    If a different symbol is requested, the current engine is stopped and a
+    new one is started — so changing the symbol in the browser takes effect
+    on the next SSE connection.
+    """
+    global _live_client, _live_pricer, _live_symbol
+    with _live_engine_lock:
+        symbol_changed = (_live_symbol != symbol)
+        engine_dead    = (_live_client is None or not _live_client.is_running)
+
+        if symbol_changed or engine_dead:
+            # Stop current engine if it exists
+            if _live_client is not None:
+                try:
+                    _live_client.stop()
+                except Exception:
+                    pass
+            _live_client, _live_pricer = quant_pricer.market_data.make_live_engine(symbol)
+            _live_symbol = symbol
+            _live_client.start()
+            # Give the REST snapshot time to populate before clients poll
+            time.sleep(2)
+
+    return _live_client, _live_pricer
+
+
+@app.route('/api/market-data')
+def market_data_snapshot():
+    """
+    GET /api/market-data?symbol=btcusdt&strike=95000&T=0.25&r=0.05&vol=0.60
+    Returns a JSON snapshot of the current order-book state.
+    """
+    try:
+        symbol = request.args.get('symbol', 'btcusdt').lower()
+        client, pricer = _get_or_start_engine(symbol)
+        result = pricer.get_live_option_price(
+            strike=float(request.args.get('strike', 95000)),
+            time_to_maturity=float(request.args.get('T', 0.25)),
+            risk_free_rate=float(request.args.get('r', 0.05)),
+            volatility=float(request.args.get('vol', 0.60)),
+            is_call=True,
+        )
+        return jsonify({
+            'spot':         result.spot,
+            'option_price': result.option_price,
+            'best_bid':     result.best_bid,
+            'best_ask':     result.best_ask,
+            'spread':       result.spread,
+            'is_running':   client.is_running,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 503
+
+
+@app.route('/api/live-stream')
+def live_stream():
+    """
+    GET /api/live-stream?strike=95000&T=0.25&r=0.05&vol=0.60
+    Server-Sent Events stream. Browser connects once; JSON frames push every 100 ms.
+    Compatible with EventSource API — no browser WebSocket needed.
+    """
+    strike = float(request.args.get('strike', 95000))
+    T      = float(request.args.get('T', 0.25))
+    r      = float(request.args.get('r', 0.05))
+    vol    = float(request.args.get('vol', 0.60))
+    symbol = request.args.get('symbol', 'btcusdt').lower()
+
+    def generate():
+        _get_or_start_engine(symbol)
+        while True:
+            try:
+                result = _live_pricer.get_live_option_price(strike, T, r, vol, True)
+                payload = json.dumps({
+                    'spot':         round(result.spot, 2),
+                    'option_price': round(result.option_price, 4),
+                    'best_bid':     round(result.best_bid, 2),
+                    'best_ask':     round(result.best_ask, 2),
+                    'spread':       round(result.spread, 4),
+                })
+                yield f"data: {payload}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            time.sleep(0.1)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',   # disable Nginx/Railway proxy buffering
+        }
+    )
+
+
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get('PORT', 5000))
     print("=" * 60)
     print("  Quant Pricing Engine — Web Interface")
@@ -151,4 +268,5 @@ if __name__ == '__main__':
     print(f"  Server starting at http://0.0.0.0:{port}")
     print("  Open your browser and navigate to the URL above")
     print("=" * 60)
-    app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=False, host='0.0.0.0', port=port, threaded=True)
+

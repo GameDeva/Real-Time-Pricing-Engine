@@ -207,25 +207,132 @@ def run_timing():
     print()
 
 
+# ── Live dashboard ─────────────────────────────────────────────────────────────
+
+def live_dashboard(strike: float = 95000.0, T: float = 0.25,
+                   r: float = 0.05, vol: float = 0.60,
+                   symbol: str = "btcusdt"):
+    """
+    Real-time animated chart: BTC Mid-Price and live BS Call Option price.
+    Connects to Binance via C++ WebSocket thread; updates every 100 ms.
+    Press Ctrl-C or close the window to stop.
+    """
+    import sys as _sys
+    if _sys.platform == "win32":
+        import os as _os
+        _ssl = r"C:\Program Files\OpenSSL-Win64\bin"
+        if _os.path.isdir(_ssl):
+            _os.add_dll_directory(_ssl)
+
+    import matplotlib
+    matplotlib.use("TkAgg")          # interactive backend for local use
+    import matplotlib.pyplot as _plt
+    import matplotlib.animation as _anim
+    import collections
+
+    md = quant_pricer.market_data
+    client, pricer = md.make_live_engine(symbol)
+
+    print(f"[LiveDashboard] Connecting to Binance ({symbol.upper()})...")
+    client.start()
+
+    # Allow the REST snapshot to populate before first render
+    import time as _time
+    _time.sleep(2)
+
+    MAX_POINTS = 300         # rolling window (~30 s at 100 ms tick)
+    spots   = collections.deque(maxlen=MAX_POINTS)
+    options = collections.deque(maxlen=MAX_POINTS)
+
+    fig, (ax1, ax2) = _plt.subplots(2, 1, figsize=(12, 7), sharex=False)
+    fig.suptitle(
+        f"Real-Time BTC Options Pricer  |  K={strike:,.0f}  T={T}y  r={r}  σ={vol}",
+        fontsize=13, fontweight="bold")
+
+    line_spot,   = ax1.plot([], [], color="#00c8ff", lw=1.5, label="BTC Mid-Price")
+    line_option, = ax2.plot([], [], color="#ff9f43", lw=1.5, label="BS Call Price")
+
+    for ax, ylabel, label in [
+        (ax1, "USD", "BTC Spot"),
+        (ax2, "USD", f"Call K={strike:,.0f}"),
+    ]:
+        ax.set_ylabel(ylabel)
+        ax.set_title(label)
+        ax.legend(loc="upper left", fontsize=9)
+        ax.grid(True, alpha=0.2, color="white")
+        ax.set_facecolor("#1a1a2e")
+
+    fig.patch.set_facecolor("#0f0f1a")
+    for ax in (ax1, ax2):
+        ax.tick_params(colors="white")
+        ax.yaxis.label.set_color("white")
+        ax.title.set_color("white")
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#444")
+
+    def _animate(_frame):
+        try:
+            res = pricer.get_live_option_price(strike, T, r, vol, True)
+            spots.append(res.spot)
+            options.append(res.option_price)
+        except Exception:
+            return line_spot, line_option
+
+        xs = list(range(len(spots)))
+        line_spot.set_data(xs, list(spots))
+        line_option.set_data(xs, list(options))
+        ax1.relim(); ax1.autoscale_view()
+        ax2.relim(); ax2.autoscale_view()
+        return line_spot, line_option
+
+    ani = _anim.FuncAnimation(fig, _animate, interval=100,
+                              blit=True, cache_frame_data=False)
+
+    try:
+        _plt.tight_layout(rect=[0, 0, 1, 0.95])
+        _plt.show()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print("[LiveDashboard] Stopping stream...")
+        client.stop()
+        print("[LiveDashboard] Done.")
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Quant Pricing Engine")
+    parser.add_argument("--static", action="store_true",
+                        help="Run static analytics plots (original mode)")
+    parser.add_argument("--strike", type=float, default=95000.0)
+    parser.add_argument("--T",      type=float, default=0.25,
+                        help="Time to maturity (years)")
+    parser.add_argument("--r",      type=float, default=0.05,
+                        help="Risk-free rate")
+    parser.add_argument("--vol",    type=float, default=0.60,
+                        help="Implied volatility")
+    parser.add_argument("--symbol", type=str,   default="btcusdt",
+                        help="Binance symbol (lowercase, e.g. ethusdt)")
+    args = parser.parse_args()
+
     out_dir = os.path.dirname(__file__)
 
-    print("Quant Pricing Engine — Phase 5 Analytics")
-    print(f"Python {sys.version.split()[0]}, quant_pricer loaded from {out_dir}")
-    print()
+    if args.static:
+        print("Quant Pricing Engine — Static Analytics")
+        print(f"Python {sys.version.split()[0]}, quant_pricer loaded from {out_dir}")
+        print()
+        print("[1/4] Strike sweep plot...")
+        plot_strike_sweep(os.path.join(out_dir, "plot1_strike_sweep.png"))
+        print("[2/4] Delta heatmap...")
+        plot_delta_heatmap(os.path.join(out_dir, "plot2_delta_heatmap.png"))
+        print("[3/4] MC convergence plot...")
+        plot_mc_convergence(os.path.join(out_dir, "plot3_mc_convergence.png"))
+        print("[4/4] Timing benchmark...")
+        run_timing()
+        print("Done. PNG files written to:", out_dir)
+    else:
+        live_dashboard(strike=args.strike, T=args.T,
+                       r=args.r, vol=args.vol, symbol=args.symbol)
 
-    print("[1/4] Strike sweep plot...")
-    plot_strike_sweep(os.path.join(out_dir, "plot1_strike_sweep.png"))
-
-    print("[2/4] Delta heatmap...")
-    plot_delta_heatmap(os.path.join(out_dir, "plot2_delta_heatmap.png"))
-
-    print("[3/4] MC convergence plot...")
-    plot_mc_convergence(os.path.join(out_dir, "plot3_mc_convergence.png"))
-
-    print("[4/4] Timing benchmark...")
-    run_timing()
-
-    print("Done. PNG files written to:", out_dir)

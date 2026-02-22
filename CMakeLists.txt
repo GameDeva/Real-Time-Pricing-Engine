@@ -72,6 +72,8 @@ add_library(quant_core STATIC
     src/BlackScholesPricer.cpp
     src/MonteCarloPricer.cpp
     src/market_data/OrderBook.cpp
+    src/market_data/MarketDataClient.cpp
+    src/market_data/LivePricer.cpp
 )
 
 target_include_directories(quant_core PUBLIC include)
