@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quant Pricing Engine - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .banner {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .banner h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .banner p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .banner a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .banner a:hover {
+            text-decoration: underline;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .result-item.highlight {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border: 2px solid #667eea;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .result-label {
+            color: #666;
+        }
+        
+        .result-value {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .greeks-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .greek-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .greek-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .greek-value {
+            color: #667eea;
+            font-size: 1.3em;
+            font-weight: 700;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #1565c0;
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .greeks-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Quant Pricing Engine</h1>
+            <p>High-Performance Options Pricing Demo (JavaScript Black-Scholes)</p>
+        </div>
+        
+        <div class="banner">
+            <h3>📌 Vercel Demo Version</h3>
+            <p>
+                This is a <strong>client-side JavaScript implementation</strong> of Black-Scholes pricing for demonstration purposes. 
+                The full C++20 engine with multi-threaded Monte Carlo simulation requires a local build.
+                <br><br>
+                <strong>To run the full engine locally:</strong>
+                <br>
+                1. Clone: <a href="https://github.com/YOUR_USERNAME/quant-pricing-engine" target="_blank">github.com/YOUR_USERNAME/quant-pricing-engine</a>
+                <br>
+                2. Build: <code>cmake -B build && cmake --build build --config Release</code>
+                <br>
+                3. Run: <code>cd python_app && python app.py</code>
+                <br><br>
+                <strong>Features in full version:</strong> Multi-threaded Monte Carlo (1.59ms for 1M paths), Python bindings, 73 automated tests
+            </p>
+        </div>
+        
+        <div class="main-grid">
+            <!-- Input Panel -->
+            <div class="card">
+                <h2>📊 Option Parameters</h2>
+                
+                <div class="info-box">
+                    💡 Enter market parameters to price European options using Black-Scholes
+                </div>
+                
+                <form id="pricingForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Spot Price (S)</label>
+                            <input type="number" id="spotPrice" value="100" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Strike Price (K)</label>
+                            <input type="number" id="strikePrice" value="100" step="0.01" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Time to Maturity (T, years)</label>
+                            <input type="number" id="timeToMaturity" value="1.0" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Risk-Free Rate (r)</label>
+                            <input type="number" id="riskFreeRate" value="0.05" step="0.001" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Volatility (σ)</label>
+                            <input type="number" id="volatility" value="0.20" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Option Type</label>
+                            <select id="optionType" required>
+                                <option value="Call">Call</option>
+                                <option value="Put">Put</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn">🚀 Calculate Price</button>
+                </form>
+            </div>
+            
+            <!-- Results Panel -->
+            <div class="card">
+                <h2>📈 Pricing Results</h2>
+                
+                <div class="results" id="results" style="display: none;">
+                    <div class="result-item highlight">
+                        <span class="result-label">Option Price:</span>
+                        <span class="result-value" id="optionPrice">-</span>
+                    </div>
+                    
+                    <div class="result-item">
+                        <span class="result-label">Method:</span>
+                        <span class="result-value">Black-Scholes (JavaScript)</span>
+                    </div>
+                </div>
+                
+                <div id="greeksSection" style="display: none;">
+                    <h2 style="margin-top: 25px;">🎯 Greeks (Risk Sensitivities)</h2>
+                    <div class="greeks-grid">
+                        <div class="greek-card">
+                            <div class="greek-label">Delta (Δ)</div>
+                            <div class="greek-value" id="deltaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Gamma (Γ)</div>
+                            <div class="greek-value" id="gammaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Vega (ν)</div>
+                            <div class="greek-value" id="vegaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Theta (Θ)</div>
+                            <div class="greek-value" id="thetaValue">-</div>
+                        </div>
+                        <div class="greek-card">
+                            <div class="greek-label">Rho (ρ)</div>
+                            <div class="greek-value" id="rhoValue">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="placeholder" style="text-align: center; padding: 60px 20px; color: #999;">
+                    <div style="font-size: 3em; margin-bottom: 10px;">📊</div>
+                    <p>Enter parameters and click Calculate to see results</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // JavaScript implementation of Black-Scholes pricing
+        
+        function normCDF(x) {
+            // Approximation of cumulative normal distribution
+            const t = 1 / (1 + 0.2316419 * Math.abs(x));
+            const d = 0.3989423 * Math.exp(-x * x / 2);
+            const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            return x > 0 ? 1 - prob : prob;
+        }
+        
+        function normPDF(x) {
+            return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+        }
+        
+        function blackScholesPrice(S, K, T, r, v, isCall) {
+            if (T <= 0) {
+                const intrinsic = isCall ? Math.max(0, S - K) : Math.max(0, K - S);
+                return intrinsic;
+            }
+            
+            const vst = v * Math.sqrt(T);
+            if (vst < 1e-10) {
+                const forward = S * Math.exp(r * T);
+                const intrinsic = isCall ? Math.max(0, forward - K) : Math.max(0, K - forward);
+                return intrinsic * Math.exp(-r * T);
+            }
+            
+            const d1 = (Math.log(S / K) + (r + 0.5 * v * v) * T) / vst;
+            const d2 = d1 - vst;
+            const discount = Math.exp(-r * T);
+            
+            if (isCall) {
+                return S * normCDF(d1) - K * discount * normCDF(d2);
+            } else {
+                return K * discount * normCDF(-d2) - S * normCDF(-d1);
+            }
+        }
+        
+        function calculateGreeks(S, K, T, r, v, isCall) {
+            const vst = v * Math.sqrt(T);
+            if (vst < 1e-10 || T <= 0) {
+                return { delta: 0, gamma: 0, vega: 0, theta: 0, rho: 0 };
+            }
+            
+            const d1 = (Math.log(S / K) + (r + 0.5 * v * v) * T) / vst;
+            const d2 = d1 - vst;
+            const discount = Math.exp(-r * T);
+            
+            const delta = isCall ? normCDF(d1) : normCDF(d1) - 1;
+            const gamma = normPDF(d1) / (S * vst);
+            const vega = S * normPDF(d1) * Math.sqrt(T);
+            
+            const decay = -(S * normPDF(d1) * v) / (2 * Math.sqrt(T));
+            const theta = isCall 
+                ? decay - r * K * discount * normCDF(d2)
+                : decay + r * K * discount * normCDF(-d2);
+            
+            const KTd = K * T * discount;
+            const rho = isCall 
+                ? KTd * normCDF(d2)
+                : -KTd * normCDF(-d2);
+            
+            return { delta, gamma, vega, theta, rho };
+        }
+        
+        // Form handling
+        const form = document.getElementById('pricingForm');
+        const results = document.getElementById('results');
+        const placeholder = document.getElementById('placeholder');
+        const greeksSection = document.getElementById('greeksSection');
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const S = parseFloat(document.getElementById('spotPrice').value);
+            const K = parseFloat(document.getElementById('strikePrice').value);
+            const T = parseFloat(document.getElementById('timeToMaturity').value);
+            const r = parseFloat(document.getElementById('riskFreeRate').value);
+            const v = parseFloat(document.getElementById('volatility').value);
+            const isCall = document.getElementById('optionType').value === 'Call';
+            
+            const price = blackScholesPrice(S, K, T, r, v, isCall);
+            const greeks = calculateGreeks(S, K, T, r, v, isCall);
+            
+            document.getElementById('optionPrice').textContent = '$' + price.toFixed(4);
+            document.getElementById('deltaValue').textContent = greeks.delta.toFixed(4);
+            document.getElementById('gammaValue').textContent = greeks.gamma.toFixed(4);
+            document.getElementById('vegaValue').textContent = greeks.vega.toFixed(2);
+            document.getElementById('thetaValue').textContent = greeks.theta.toFixed(2);
+            document.getElementById('rhoValue').textContent = greeks.rho.toFixed(2);
+            
+            placeholder.style.display = 'none';
+            results.style.display = 'block';
+            greeksSection.style.display = 'block';
+        });
+    </script>
+</body>
+</html>

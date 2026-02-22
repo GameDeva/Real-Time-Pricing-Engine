@@ -1,0 +1,5 @@
+{
+  "buildCommand": "echo 'Static build - no compilation needed'",
+  "outputDirectory": "public",
+  "cleanUrls": true
+}
