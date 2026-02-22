@@ -44,6 +44,7 @@ add_library(quant_core STATIC
 
 target_include_directories(quant_core PUBLIC include)
 target_compile_features(quant_core PUBLIC cxx_std_20)
+set_target_properties(quant_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ── Python binding module ──────────────────────────────────────────────────────
 pybind11_add_module(quant_pricer bindings/PybindModule.cpp)
