@@ -37,4 +37,4 @@ ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=python_app/app.py
 
 # Run the Flask app
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+CMD ["sh", "-c", "python -m flask run --host=0.0.0.0 --port=${PORT:-5000}"]
