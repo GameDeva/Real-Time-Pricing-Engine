@@ -73,12 +73,21 @@ MarketDataClient::~MarketDataClient() {
 long long MarketDataClient::fetchSnapshot() {
     ix::HttpClient http;
     ix::HttpRequestArgsPtr args = http.createRequest();
-    args->connectTimeout = 10;
-    args->transferTimeout = 10;
+    
+    // Railway-specific: increased timeouts for cloud environment
+    args->connectTimeout = 30;  // Increased from 10 to 30 seconds
+    args->transferTimeout = 30; // Increased from 10 to 30 seconds
+    
+    // Set user agent to avoid potential blocking
+    args->extraHeaders["User-Agent"] = "QuantPricingEngine/1.0";
+
+    std::cout << "[MarketDataClient] Fetching snapshot from: " << depthRestUrl(symbolUpper_) << "\n";
 
     auto response = http.get(depthRestUrl(symbolUpper_), args);
 
+    std::cout << "[MarketDataClient] HTTP response status: " << response->statusCode << "\n";
     if (response->statusCode != 200) {
+        std::cerr << "[MarketDataClient] Response body: " << response->body << "\n";
         throw std::runtime_error(
             "Binance depth snapshot failed: HTTP " +
             std::to_string(response->statusCode));
@@ -131,6 +140,32 @@ void MarketDataClient::applyDelta(const std::string& msg, long long snapshotId) 
                            parseLevel(entry).second, /*is_bid=*/false);
 }
 
+// ── REST polling fallback ───────────────────────────────────────────────────────
+
+bool MarketDataClient::runRestPolling() {
+    std::cout << "[MarketDataClient] Starting REST polling mode (WebSocket fallback)\n";
+    
+    while (!stopRequested_.load(std::memory_order_acquire)) {
+        try {
+            // Fetch fresh snapshot every 2 seconds
+            fetchSnapshot();
+        } catch (const std::exception& e) {
+            std::cerr << "[MarketDataClient] REST polling error: " << e.what() << "\n";
+            // Don't give up immediately on REST errors, just continue
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            continue;
+        }
+        
+        // Sleep for 2 seconds between updates
+        for (int i = 0; i < 20 && !stopRequested_.load(std::memory_order_acquire); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+    
+    std::cout << "[MarketDataClient] REST polling stopped\n";
+    return true;
+}
+
 // ── runSession ─────────────────────────────────────────────────────────────────
 
 bool MarketDataClient::runSession() {
@@ -144,8 +179,16 @@ bool MarketDataClient::runSession() {
     }
 
     // Step 2: Open the WebSocket delta stream.
-    impl_->ws.setUrl(depthWsUrl(symbol_));
+    std::string wsUrl = depthWsUrl(symbol_);
+    std::cout << "[MarketDataClient] Connecting WebSocket to: " << wsUrl << "\n";
+    impl_->ws.setUrl(wsUrl);
     impl_->ws.disableAutomaticReconnection(); // We handle reconnect ourselves.
+    
+    // Railway-specific: increased WebSocket timeouts
+    impl_->ws.setPingInterval(30); // Ping every 30 seconds
+    impl_->ws.setHeartBeatMessage("keepalive");
+    impl_->ws.setHeartBeatWaitTime(60); // Wait 60 seconds for pong
+    impl_->ws.setPerMessageDeflateEnabled(false); // Disable compression for reliability
 
     // Atomic flag used to signal session end from the message callback.
     std::atomic<bool> sessionDone{false};
@@ -158,19 +201,22 @@ bool MarketDataClient::runSession() {
                 break;
 
             case ix::WebSocketMessageType::Open:
-                std::cout << "[MarketDataClient] WebSocket connected: "
-                          << depthWsUrl(symbol_) << "\n";
+                std::cout << "[MarketDataClient] WebSocket connected successfully\n";
                 break;
 
             case ix::WebSocketMessageType::Error:
                 std::cerr << "[MarketDataClient] WebSocket error: "
-                          << msg->errorInfo.reason << "\n";
+                          << msg->errorInfo.reason << " (code: " 
+                          << msg->errorInfo.http_status << ")\n";
+                std::cerr << "[MarketDataClient] Error details: " 
+                          << msg->errorInfo.pretty_str << "\n";
                 sessionDone.store(true, std::memory_order_release);
                 break;
 
             case ix::WebSocketMessageType::Close:
                 std::cout << "[MarketDataClient] WebSocket closed ("
-                          << msg->closeInfo.code << ")\n";
+                          << msg->closeInfo.code << ") - reason: " 
+                          << msg->closeInfo.reason << "\n";
                 sessionDone.store(true, std::memory_order_release);
                 break;
 
@@ -180,6 +226,27 @@ bool MarketDataClient::runSession() {
         });
 
     impl_->ws.start();
+
+    // Wait for WebSocket connection with timeout
+    std::cout << "[MarketDataClient] Waiting for WebSocket connection...\n";
+    auto startTime = std::chrono::steady_clock::now();
+    const auto connectionTimeout = std::chrono::seconds(30); // Increased from 15 to 30 seconds
+    
+    bool connected = false;
+    while (!sessionDone.load(std::memory_order_acquire) && 
+           !connected && 
+           (std::chrono::steady_clock::now() - startTime) < connectionTimeout) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        connected = (impl_->ws.getReadyState() == ix::WebSocketReadyState::Open);
+    }
+    
+    if (!connected && !sessionDone.load(std::memory_order_acquire)) {
+        std::cerr << "[MarketDataClient] WebSocket connection timeout after 30 seconds\n";
+        impl_->ws.stop();
+        return false;
+    }
+
+    std::cout << "[MarketDataClient] WebSocket session started successfully\n";
 
     // Wait until either the user calls stop() or the session drops.
     while (!stopRequested_.load(std::memory_order_acquire) &&
@@ -206,16 +273,30 @@ void MarketDataClient::start() {
     // Spawn a detached management thread: handles retry loop.
     std::thread([this]() {
         int retries = 0;
+        int wsFailures = 0;
+        const int maxWsFailures = 3; // Fall back to REST after 3 WebSocket failures
+        
         while (!stopRequested_.load(std::memory_order_acquire)) {
             bool cleanShutdown = runSession();
 
             if (cleanShutdown || stopRequested_.load(std::memory_order_acquire))
                 break;
 
+            wsFailures++;
+            
+            // After multiple WebSocket failures, fall back to REST polling
+            if (wsFailures >= maxWsFailures) {
+                std::cout << "[MarketDataClient] WebSocket failed " << wsFailures 
+                          << " times, falling back to REST polling\n";
+                runRestPolling();
+                break;
+            }
+
             ++retries;
             if (retries > kMaxRetries) {
                 std::cerr << "[MarketDataClient] Exceeded max retries ("
-                          << kMaxRetries << "). Giving up.\n";
+                          << kMaxRetries << "). Falling back to REST polling.\n";
+                runRestPolling();
                 break;
             }
 

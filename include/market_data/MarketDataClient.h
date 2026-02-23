@@ -51,6 +51,9 @@ private:
     // Returns true on a clean shutdown, false on unrecoverable error.
     bool runSession();
 
+    // Fallback REST polling mode when WebSocket fails.
+    bool runRestPolling();
+
     // Fetch the depth snapshot from Binance REST and populate the OrderBook.
     // Returns the lastUpdateId from the snapshot (used to filter stale deltas).
     long long fetchSnapshot();

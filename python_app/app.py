@@ -244,7 +244,10 @@ def live_stream():
 
         while True:
             try:
+                t0 = time.perf_counter()
                 result = pricer.get_live_option_price(strike, T, r, vol, True)
+                bs_us = (time.perf_counter() - t0) * 1_000_000   # µs
+
                 if result.spot <= 0:
                     # LOB snapshot not yet populated — skip this tick
                     time.sleep(0.1)
@@ -255,6 +258,8 @@ def live_stream():
                     'best_bid':     round(result.best_bid, 2),
                     'best_ask':     round(result.best_ask, 2),
                     'spread':       round(result.spread, 4),
+                    'bs_us':        round(bs_us, 2),    # BS call latency (µs)
+                    'server_ts':    time.time(),         # for E2E latency calc
                 })
                 yield f"data: {payload}\n\n"
             except GeneratorExit:
@@ -262,6 +267,7 @@ def live_stream():
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
             time.sleep(0.1)
+
 
     return Response(
         stream_with_context(generate()),
