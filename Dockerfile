@@ -1,8 +1,10 @@
-# Multi-stage build for optimal image size
-FROM python:3.11-slim as builder
+# ──────────────────────────────────────────────────────────────────────────────
+# Stage 1: Build — compile C++ engine + Pybind11 extension
+# ──────────────────────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
+# Build-time deps: CMake, C++20 compiler, OpenSSL dev headers, git (FetchContent)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
@@ -11,31 +13,51 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy source code
+# Copy the full source tree
 COPY . .
 
-# Build C++ library and Python bindings
+# Build: cmake configures FetchContent deps then compiles quant_core + quant_pricer .so
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build --config Release
+    cmake --build build --config Release --parallel $(nproc)
 
-# Runtime stage
+# ──────────────────────────────────────────────────────────────────────────────
+# Stage 2: Runtime — lean image that only carries what Flask needs
+# ──────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim
+
+# OpenSSL runtime libs (libssl.so / libcrypto.so) — required by the ixwebsocket
+# TLS layer that's compiled into quant_pricer.so.  Without this the .so segfaults
+# on import.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy built artifacts from builder
+# Copy only what the Flask app needs at runtime:
+#   - python_app/   → Flask application code, static HTML/CSS/JS
+#   - build/        → quant_pricer.cpython-3.11-*.so + its rpath'd dependencies
 COPY --from=builder /app/python_app /app/python_app
-COPY --from=builder /app/build /app/build
+COPY --from=builder /app/build      /app/build
 
-# Install Python dependencies
-RUN pip install --no-cache-dir flask flask-cors numpy
+# Install Python dependencies from the canonical requirements file.
+# gunicorn is added for production-grade serving on Railway.
+RUN pip install --no-cache-dir \
+    flask>=3.0.0 \
+    flask-cors>=4.0.0 \
+    requests>=2.31.0 \
+    numpy>=1.24.0 \
+    gunicorn>=21.0.0
 
-# Expose port
+# Tell Python where to find the compiled quant_pricer .so.
+# build/ is the cmake output directory where pybind11 places the extension.
+ENV PYTHONPATH=/app/build
+ENV PYTHONUNBUFFERED=1
+
+# Railway injects $PORT at runtime; default to 5000 for local docker run.
 EXPOSE 5000
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=python_app/app.py
-
-# Run the Flask app
-CMD ["sh", "-c", "python -m flask run --host=0.0.0.0 --port=${PORT:-5000}"]
+# Use gunicorn in production (multiple workers, proper signal handling).
+# --timeout 120: Binance snapshot + WS connect can take up to 30s per worker.
+# --worker-class sync: SSE streaming requires sync (not async) workers.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --threads 4 --timeout 120 --worker-class sync python_app.app:app"]

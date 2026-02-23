@@ -13,11 +13,26 @@ if sys.platform == 'win32':
     if os.path.isdir(_ssl_bin):
         os.add_dll_directory(_ssl_bin)
 
-sys.path.insert(0, os.path.dirname(__file__))
+# Resolve quant_pricer.so in all environments:
+#   Railway  — PYTHONPATH=/app/build is set in Dockerfile ENV (already on path)
+#   Local    — build/ is one level above python_app/
+#   Fallback — python_app/ itself (legacy)
+_here      = os.path.dirname(os.path.abspath(__file__))
+_proj_root = os.path.dirname(_here)
+_build_dir = os.path.join(_proj_root, 'build')
+for _p in [_build_dir, _here]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import quant_pricer
+try:
+    import quant_pricer
+except ImportError as _e:
+    raise ImportError(
+        f"Cannot import quant_pricer: {_e}\n"
+        "Run: cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build"
+    ) from _e
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
