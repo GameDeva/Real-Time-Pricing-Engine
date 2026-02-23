@@ -170,6 +170,7 @@ def calculate_greeks():
 import json
 import time
 import threading
+import requests as _requests
 from flask import Response, stream_with_context
 
 # Module-level singleton keyed by symbol.
@@ -178,6 +179,54 @@ _live_engine_lock = threading.Lock()
 _live_client = None
 _live_pricer  = None
 _live_symbol  = None
+
+
+def _fetch_rest_ticker(symbol: str) -> dict:
+    """
+    Python REST fallback — fetches best bid/ask directly from Binance using
+    Python's requests library (separate TLS stack from C++ ixwebsocket).
+    Used when the C++ LOB engine cannot populate (TLS cert issue, IP block, etc.)
+    """
+    url = f"https://api.binance.com/api/v3/ticker/bookTicker?symbol={symbol.upper()}"
+    r = _requests.get(url, timeout=8)
+    r.raise_for_status()
+    d = r.json()
+    bid = float(d['bidPrice'])
+    ask = float(d['askPrice'])
+    return {'bid': bid, 'ask': ask, 'mid': (bid + ask) / 2.0, 'spread': ask - bid}
+
+
+@app.route('/api/health')
+def health():
+    """
+    GET /api/health  — connectivity diagnostics.
+    Returns status of Python requests → Binance and C++ LOB engine.
+    Check this on Railway to diagnose market data failures.
+    """
+    result = {'python_requests': {}, 'cpp_engine': {}}
+
+    # 1. Test Python → Binance REST
+    try:
+        t0 = time.time()
+        ticker = _fetch_rest_ticker('btcusdt')
+        result['python_requests'] = {
+            'ok': True, 'latency_ms': round((time.time() - t0) * 1000, 1),
+            'bid': ticker['bid'], 'ask': ticker['ask']
+        }
+    except Exception as e:
+        result['python_requests'] = {'ok': False, 'error': str(e)}
+
+    # 2. Test C++ engine
+    try:
+        c, p = _get_or_start_engine('btcusdt')
+        spot = p.get_live_option_price(1.0, 1.0, 0.05, 0.3, True).spot
+        result['cpp_engine'] = {'ok': spot > 0, 'spot': spot}
+    except Exception as e:
+        result['cpp_engine'] = {'ok': False, 'error': str(e)}
+
+    result['overall'] = result['python_requests'].get('ok') or result['cpp_engine'].get('ok')
+    return jsonify(result)
+
 
 def _get_or_start_engine(symbol: str = "btcusdt"):
     """
@@ -215,6 +264,7 @@ def _get_or_start_engine(symbol: str = "btcusdt"):
                 time.sleep(0.25)
 
     return _live_client, _live_pricer
+
 
 
 @app.route('/api/market-data')
@@ -267,40 +317,89 @@ def live_stream():
         # so the browser knows the connection is alive before the first data frame.
         yield ": keepalive\n\n"
 
+        # Track consecutive zero-spot ticks to trigger REST fallback
+        import math as _math
+        _zero_streak = 0
+
         while True:
             try:
                 t0 = time.perf_counter()
                 result = pricer.get_live_option_price(strike, T, r, vol, True)
-                bs_us = (time.perf_counter() - t0) * 1_000_000   # µs
+                bs_us  = (time.perf_counter() - t0) * 1_000_000
 
-                if result.spot <= 0:
-                    # LOB snapshot not yet populated — skip this tick
-                    yield 'data: {"status":"connecting","msg":"Waiting for order book..."}'  + '\n\n'
-                    time.sleep(0.5)
+                if result.spot > 0:
+                    # C++ LOB is working — happy path
+                    _zero_streak = 0
+                    payload = json.dumps({
+                        'spot':         round(result.spot, 2),
+                        'option_price': round(result.option_price, 4),
+                        'best_bid':     round(result.best_bid, 2),
+                        'best_ask':     round(result.best_ask, 2),
+                        'spread':       round(result.spread, 4),
+                        'bs_us':        round(bs_us, 2),
+                        'server_ts':    time.time(),
+                        'source':       'lob',
+                    })
+                    yield f"data: {payload}\n\n"
+                    time.sleep(0.1)
                     continue
-                payload = json.dumps({
-                    'spot':         round(result.spot, 2),
-                    'option_price': round(result.option_price, 4),
-                    'best_bid':     round(result.best_bid, 2),
-                    'best_ask':     round(result.best_ask, 2),
-                    'spread':       round(result.spread, 4),
-                    'bs_us':        round(bs_us, 2),    # BS call latency (µs)
-                    'server_ts':    time.time(),         # for E2E latency calc
-                })
-                yield f"data: {payload}\n\n"
+
+                # result.spot == 0: order book not populated yet
+                _zero_streak += 1
+
             except GeneratorExit:
-                return   # browser disconnected — exit cleanly
-            except Exception as e:
-                err = str(e)
-                # Mid-price zero = order book still loading. Send a soft
-                # 'connecting' status instead of a hard error so the browser
-                # shows a waiting indicator rather than the red error box.
-                if 'mid-price' in err.lower() or 'mid_price' in err.lower() or 'zero' in err.lower():
-                    yield 'data: {"status":"connecting","msg":"Waiting for market data..."}' + '\n\n'
-                    time.sleep(0.5)
+                return  # browser disconnected
+
+            except Exception:
+                _zero_streak += 1
+
+            # After 3 consecutive zero/error ticks, try Python REST fallback
+            if _zero_streak >= 3:
+                try:
+                    t0     = time.perf_counter()
+                    ticker = _fetch_rest_ticker(symbol)
+                    bs_us  = (time.perf_counter() - t0) * 1_000_000
+                    spot   = ticker['mid']
+                    bid    = ticker['bid']
+                    ask    = ticker['ask']
+                    spread = ticker['spread']
+
+                    # Inline Black-Scholes (no scipy dependency)
+                    def _ncdf(x):
+                        return (1.0 + _math.erf(x / _math.sqrt(2.0))) / 2.0
+                    if T > 0 and vol > 0 and spot > 0 and strike > 0:
+                        d1  = (_math.log(spot / strike) + (r + 0.5 * vol**2) * T) / (vol * _math.sqrt(T))
+                        d2  = d1 - vol * _math.sqrt(T)
+                        opt = spot * _ncdf(d1) - strike * _math.exp(-r * T) * _ncdf(d2)
+                    else:
+                        opt = 0.0
+
+                    payload = json.dumps({
+                        'spot':         round(spot, 2),
+                        'option_price': round(opt, 4),
+                        'best_bid':     round(bid, 2),
+                        'best_ask':     round(ask, 2),
+                        'spread':       round(spread, 4),
+                        'bs_us':        round(bs_us, 2),
+                        'server_ts':    time.time(),
+                        'source':       'rest',
+                    })
+                    yield f"data: {payload}\n\n"
+                    time.sleep(1.0)  # REST fallback runs at 1 Hz
+                    # Don't reset _zero_streak — keep using REST until C++ recovers
                     continue
-                yield f"data: {json.dumps({'error': err})}\n\n"
-            time.sleep(0.1)
+
+                except GeneratorExit:
+                    return
+
+                except Exception:
+                    yield 'data: {"status":"connecting","msg":"Waiting for market data..."}\n\n'
+                    time.sleep(1.0)
+                    continue
+
+            # C++ returned zero but < 3 ticks — hold briefly before retry
+            yield 'data: {"status":"connecting","msg":"Waiting for order book..."}\n\n'
+            time.sleep(0.5)
 
 
     return Response(

@@ -25,11 +25,13 @@ RUN cmake -B build -DCMAKE_BUILD_TYPE=Release && \
 # ──────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
-# OpenSSL runtime libs (libssl.so / libcrypto.so) — required by the ixwebsocket
-# TLS layer that's compiled into quant_pricer.so.  Without this the .so segfaults
-# on import.
+# OpenSSL runtime libs + CA certificate bundle.
+# ca-certificates is CRITICAL — without it ixwebsocket's IXHttpClient cannot
+# verify Binance's TLS cert (no CA bundle = SSL handshake fails silently, and
+# the REST snapshot returns with an error the C++ code treats as a failure).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
