@@ -30,13 +30,18 @@ struct MarketDataClient::Impl {
 namespace {
 
 // Convert uppercase symbol → REST depth URL.
-std::string depthRestUrl(const std::string &upper) {
-  return "https://api.binance.com/api/v3/depth?symbol=" + upper + "&limit=20";
+std::string depthRestUrl(const std::string &symbol) {
+  std::string upper = symbol;
+  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+  return "https://data-api.binance.vision/api/v3/depth?symbol=" + upper +
+         "&limit=20";
 }
 
-// Convert lowercase symbol → WebSocket stream URL.
-std::string depthWsUrl(const std::string &lower) {
-  return "wss://stream.binance.com:9443/ws/" + lower + "@depth@100ms";
+std::string depthWsUrl(const std::string &symbol) {
+  std::string lower = symbol;
+  std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+  return "wss://stream.data-api.binance.vision:9443/ws/" + lower +
+         "@depth@100ms";
 }
 
 // Parse a Binance price/qty pair ["price_str", "qty_str"] → {price, qty}.

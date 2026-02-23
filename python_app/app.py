@@ -187,7 +187,7 @@ def _fetch_rest_ticker(symbol: str) -> dict:
     Python's requests library (separate TLS stack from C++ ixwebsocket).
     Used when the C++ LOB engine cannot populate (TLS cert issue, IP block, etc.)
     """
-    url = f"https://api.binance.com/api/v3/ticker/bookTicker?symbol={symbol.upper()}"
+    url = f"https://data-api.binance.vision/api/v3/ticker/bookTicker?symbol={symbol.upper()}"
     r = _requests.get(url, timeout=8)
     r.raise_for_status()
     d = r.json()
