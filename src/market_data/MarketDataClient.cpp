@@ -1,6 +1,7 @@
 #include "market_data/MarketDataClient.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
@@ -32,14 +33,16 @@ namespace {
 // Convert uppercase symbol → REST depth URL.
 std::string depthRestUrl(const std::string &symbol) {
   std::string upper = symbol;
-  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+  std::transform(upper.begin(), upper.end(), upper.begin(),
+                 [](unsigned char c) { return std::toupper(c); });
   return "https://data-api.binance.vision/api/v3/depth?symbol=" + upper +
          "&limit=20";
 }
 
 std::string depthWsUrl(const std::string &symbol) {
   std::string lower = symbol;
-  std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+  std::transform(lower.begin(), lower.end(), lower.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
   return "wss://stream.data-api.binance.vision:9443/ws/" + lower +
          "@depth@100ms";
 }
