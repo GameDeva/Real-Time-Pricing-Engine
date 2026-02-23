@@ -1365,15 +1365,35 @@
                 clearTimeout(connectionTimeout);
 
                 const d = JSON.parse(e.data);
-                if (d.error) {
-                    document.getElementById('liveError').textContent = '❌ ' + d.error;
-                    document.getElementById('liveError').classList.add('show');
-                    // Don't return immediately - try to continue
+
+                // Soft "still connecting" status — show amber info, not red error
+                if (d.status === 'connecting') {
+                    const box = document.getElementById('liveError');
+                    box.textContent = '⏳ ' + (d.msg || 'Connecting to market data...');
+                    box.classList.add('show');
+                    box.style.background = 'rgba(180,120,0,.15)';
+                    box.style.borderColor = 'rgba(180,120,0,.4)';
+                    box.style.color = '#c9a96e';
                     return;
                 }
 
-                // Clear error message on successful data reception
-                document.getElementById('liveError').classList.remove('show');
+                if (d.error) {
+                    const box = document.getElementById('liveError');
+                    box.textContent = '❌ ' + d.error;
+                    box.style.background = '';
+                    box.style.borderColor = '';
+                    box.style.color = '';
+                    box.classList.add('show');
+                    return;
+                }
+
+                // Clear any status / error message on successful data
+                const box = document.getElementById('liveError');
+                box.style.background = '';
+                box.style.borderColor = '';
+                box.style.color = '';
+                box.classList.remove('show');
+
 
                 // Subsample for 1h window
                 tickCounter++;

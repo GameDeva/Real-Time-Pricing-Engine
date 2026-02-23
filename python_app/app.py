@@ -201,8 +201,18 @@ def _get_or_start_engine(symbol: str = "btcusdt"):
             _live_client, _live_pricer = quant_pricer.market_data.make_live_engine(symbol)
             _live_symbol = symbol
             _live_client.start()
-            # Give the REST snapshot time to populate before clients poll
-            time.sleep(2)
+
+            # Poll until the order book is populated (up to 15 s).
+            # On Railway/cloud the Binance REST snapshot can take 3-8 s.
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                try:
+                    r = _live_pricer.get_live_option_price(1.0, 1.0, 0.05, 0.3, True)
+                    if r.spot > 0:
+                        break
+                except Exception:
+                    pass  # still loading — keep waiting
+                time.sleep(0.25)
 
     return _live_client, _live_pricer
 
@@ -265,7 +275,8 @@ def live_stream():
 
                 if result.spot <= 0:
                     # LOB snapshot not yet populated — skip this tick
-                    time.sleep(0.1)
+                    yield 'data: {"status":"connecting","msg":"Waiting for order book..."}'  + '\n\n'
+                    time.sleep(0.5)
                     continue
                 payload = json.dumps({
                     'spot':         round(result.spot, 2),
@@ -280,7 +291,15 @@ def live_stream():
             except GeneratorExit:
                 return   # browser disconnected — exit cleanly
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                err = str(e)
+                # Mid-price zero = order book still loading. Send a soft
+                # 'connecting' status instead of a hard error so the browser
+                # shows a waiting indicator rather than the red error box.
+                if 'mid-price' in err.lower() or 'mid_price' in err.lower() or 'zero' in err.lower():
+                    yield 'data: {"status":"connecting","msg":"Waiting for market data..."}' + '\n\n'
+                    time.sleep(0.5)
+                    continue
+                yield f"data: {json.dumps({'error': err})}\n\n"
             time.sleep(0.1)
 
 
